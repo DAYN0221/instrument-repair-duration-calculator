@@ -1,26 +1,30 @@
 # 仪器维修时长计算系统
 
-基于FastAPI构建的仪器维修时长计算和超期判断系统，支持中国法定节假日的工作日计算。
+基于 FastAPI 构建的仪器维修时长计算和超期判断系统，支持中国法定节假日的工作日计算。
 
 ## 功能特性
 
 ### 1. 工作日计算
-- **智能API集成**: 优先使用 `https://date.appworlds.cn/work/days` API获取精确的工作日数据
-- **自动排除节假日**: API自动处理中国法定节假日，无需手动维护节假日列表
+
+- **智能 API 集成**: 优先使用 `https://date.appworlds.cn/work/days` API 获取精确的工作日数据
+- **自动排除节假日**: API 自动处理中国法定节假日，无需手动维护节假日列表
 - **缓存机制**: 相同日期范围的查询结果会被缓存，提高响应速度
-- **降级处理**: API失败时自动降级到本地计算（排除周末）
+- **降级处理**: API 失败时自动降级到本地计算（排除周末）
 - **分段查询**: 支持超过一年的日期范围，自动分段处理
 
 ### 2. 维修时长计算
 
 #### 普通维修仪器 (rep_ins_type ≠ 3)
-- **检测时长**: 提交报价时间 - 派工时间 ≤ 7个工作日
-- **维修时长**: 提交质检时间 - 合同审核通过时间 ≤ 10个工作日
+
+- **检测时长**: 提交报价时间 - 派工时间 ≤ 7 个工作日
+- **维修时长**: 提交质检时间 - 合同审核通过时间 ≤ 10 个工作日
 
 #### 返修仪器 (rep_ins_type = 3)
-- **返修时长**: 提交质检时间 - 派工时间 ≤ 10个工作日
+
+- **返修时长**: 提交质检时间 - 派工时间 ≤ 10 个工作日
 
 ### 3. 超期判断
+
 - 自动判断各阶段是否超过规定工作日
 - 返回详细的超期状态信息
 
@@ -55,14 +59,14 @@ pip install -r requirements.txt
 python main.py
 ```
 
-服务器将在 `http://localhost:12123` 启动
+服务器将在 `http://localhost:12124` 启动
 
-### 3. 查看API文档
+### 3. 查看 API 文档
 
-- Swagger UI: http://localhost:12123/docs
-- ReDoc: http://localhost:12123/redoc
+- Swagger UI: http://localhost:12124/docs
+- ReDoc: http://localhost:12124/redoc
 
-## API接口
+## API 接口
 
 ### 1. 计算维修时长 `/calculate_repair_time`
 
@@ -72,11 +76,11 @@ python main.py
 
 ```json
 {
-  "rep_ins_type": 1,                    // 仪器类型，3为返修，其他为普通维修
-  "rep_start_date": "2024-03-01 09:00:00",  // 派工时间戳
+  "rep_ins_type": 1, // 仪器类型，3为返修，其他为普通维修
+  "rep_start_date": "2024-03-01 09:00:00", // 派工时间戳
   "quot_start_date": "2024-03-08 17:00:00", // 提交报价时间戳（可选）
   "detec_start_date": "2024-03-10 09:00:00", // 合同审核通过时间戳（可选）
-  "qc_start_time": "2024-03-25 16:00:00"    // 提交质检时间戳（可选）
+  "qc_start_time": "2024-03-25 16:00:00" // 提交质检时间戳（可选）
 }
 ```
 
@@ -85,11 +89,11 @@ python main.py
 ```json
 {
   "rep_ins_type": 1,
-  "detection_days": 5,           // 检测时长（工作日）
-  "repair_days": 11,             // 维修时长（工作日）
-  "return_repair_days": null,    // 返修时长（工作日）
+  "detection_days": 5, // 检测时长（工作日）
+  "repair_days": 11, // 维修时长（工作日）
+  "return_repair_days": null, // 返修时长（工作日）
   "is_detection_overdue": false, // 检测是否超期
-  "is_repair_overdue": true,     // 维修是否超期
+  "is_repair_overdue": true, // 维修是否超期
   "is_return_repair_overdue": null, // 返修是否超期
   "message": "计算完成"
 }
@@ -108,25 +112,28 @@ python main.py
 ### 1. 运行测试脚本
 
 **基础功能测试**:
+
 ```bash
 python test_api.py
 ```
 
-**工作日API集成测试**:
+**工作日 API 集成测试**:
+
 ```bash
 python test_workday_api.py
 ```
 
 **快速验证**:
+
 ```bash
 python quick_test.py
 ```
 
-### 2. 使用curl测试
+### 2. 使用 curl 测试
 
 ```bash
 # 测试普通维修仪器
-curl -X POST "http://localhost:12123/calculate_repair_time" \
+curl -X POST "http://localhost:12124/calculate_repair_time" \
      -H "Content-Type: application/json" \
      -d '{
        "rep_ins_type": 1,
@@ -137,7 +144,7 @@ curl -X POST "http://localhost:12123/calculate_repair_time" \
      }'
 
 # 测试返修仪器
-curl -X POST "http://localhost:12123/calculate_repair_time" \
+curl -X POST "http://localhost:12124/calculate_repair_time" \
      -H "Content-Type: application/json" \
      -d '{
        "rep_ins_type": 3,
@@ -146,7 +153,7 @@ curl -X POST "http://localhost:12123/calculate_repair_time" \
      }'
 ```
 
-### 3. Python代码示例
+### 3. Python 代码示例
 
 ```python
 import requests
@@ -160,7 +167,7 @@ data = {
     "qc_start_time": "2024-03-25 16:00:00"
 }
 
-response = requests.post("http://localhost:12123/calculate_repair_time", json=data)
+response = requests.post("http://localhost:12124/calculate_repair_time", json=data)
 result = response.json()
 
 print(f"检测时长: {result['detection_days']} 工作日")
@@ -181,44 +188,50 @@ print(f"API返回工作日数: {api_data['data']}")
 
 系统支持多种日期时间格式：
 
-- ISO格式: `2024-03-01T09:00:00`
+- ISO 格式: `2024-03-01T09:00:00`
 - 标准格式: `2024-03-01 09:00:00`
 - 日期格式: `2024-03-01`
 - 带时区格式: `2024-03-01T09:00:00Z`
 
-## 工作日API集成
+## 工作日 API 集成
 
-### API信息
-- **API地址**: `https://date.appworlds.cn/work/days`
+### API 信息
+
+- **API 地址**: `https://date.appworlds.cn/work/days`
 - **请求方式**: GET/POST
-- **请求限制**: 免费用户1秒1次，日请求量不超过1千次
+- **请求限制**: 免费用户 1 秒 1 次，日请求量不超过 1 千次
 - **支持范围**: 最大支持查询一年范围
 
 ### 功能特性
-1. **自动节假日处理**: API自动处理中国法定节假日，无需手动维护
-2. **智能缓存**: 系统会缓存API查询结果，避免重复请求
-3. **容错机制**: API失败时自动降级到本地计算
+
+1. **自动节假日处理**: API 自动处理中国法定节假日，无需手动维护
+2. **智能缓存**: 系统会缓存 API 查询结果，避免重复请求
+3. **容错机制**: API 失败时自动降级到本地计算
 4. **分段查询**: 超过一年的日期范围会自动分段处理
 
-### 测试API集成
+### 测试 API 集成
 
 **完整测试套件**:
+
 ```bash
 python test_workday_api.py
 ```
 
-**快速API验证**:
+**快速 API 验证**:
+
 ```bash
 python quick_test.py
 ```
 
 **简单功能测试**:
+
 ```bash
 python simple_test.py
 ```
 
 这些测试脚本会验证：
-- API直接调用功能
+
+- API 直接调用功能
 - 系统集成效果
 - 缓存机制
 - 频率限制处理
@@ -226,27 +239,27 @@ python simple_test.py
 
 ## 注意事项
 
-1. **工作日计算**: 优先使用API获取精确的工作日数据，包含中国法定节假日
-2. **API限制**: 免费用户有频率限制（1秒1次），系统已实现缓存和降级机制
+1. **工作日计算**: 优先使用 API 获取精确的工作日数据，包含中国法定节假日
+2. **API 限制**: 免费用户有频率限制（1 秒 1 次），系统已实现缓存和降级机制
 3. **时长计算**: 不包含起始日期，只计算中间的完整工作日
 4. **超期判断**: 严格按照工作日计算，不是自然日
-5. **容错处理**: API失败时会自动降级到本地计算（仅排除周末）
+5. **容错处理**: API 失败时会自动降级到本地计算（仅排除周末）
 6. **网络依赖**: 首次查询需要网络连接，后续相同查询使用缓存
 
 ## 技术栈
 
-- **FastAPI**: 现代、快速的Web框架
+- **FastAPI**: 现代、快速的 Web 框架
 - **Pydantic**: 数据验证和序列化
-- **Uvicorn**: ASGI服务器
-- **python-docx**: Word文档处理
-- **Requests**: HTTP请求库，用于API调用
-- **工作日API**: 中国法定节假日数据源
+- **Uvicorn**: ASGI 服务器
+- **python-docx**: Word 文档处理
+- **Requests**: HTTP 请求库，用于 API 调用
+- **工作日 API**: 中国法定节假日数据源
 
 ## 开发和扩展
 
-### 配置API设置
+### 配置 API 设置
 
-在 `main.py` 中修改API配置：
+在 `main.py` 中修改 API 配置：
 
 ```python
 # 修改API地址（如果需要）

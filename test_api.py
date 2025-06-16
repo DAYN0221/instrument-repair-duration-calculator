@@ -12,7 +12,7 @@ import json
 from datetime import datetime, timedelta
 
 # API基础URL
-BASE_URL = "http://localhost:12123"
+BASE_URL = "http://localhost:12124"
 
 def test_repair_time_calculation():
     """测试维修时长计算功能"""

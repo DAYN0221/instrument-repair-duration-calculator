@@ -1,35 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from docxtpl import DocxTemplate
-from uuid import uuid4
-import os
 from datetime import datetime, timedelta
 from typing import Optional
-import calendar
 import requests
-import json
 
 app = FastAPI(title="仪器维修时长计算系统", description="计算仪器维修各阶段时长并判断是否超期")
-
-# 创建生成文件目录
-os.makedirs("generated_files", exist_ok=True)
-app.mount("/static", StaticFiles(directory="generated_files"), name="static")
-
-class MaintenanceRequest(BaseModel):
-    cust_name: str
-    cust_add: str
-    cust_phone: str
-    cust_contact: str
-    device_type: str
-    device_sn: str
-    device_err: str
-    dtc_rslt: str
-    total_fee: float
-    device_model: str
-    accessories: str
-    repair_plan: str
-    maint_eng_id: str
 
 class RepairTimeCalculationRequest(BaseModel):
     rep_ins_type: int  # 仪器类型，3为返修，其他为普通维修
@@ -194,45 +169,10 @@ async def root():
         "message": "仪器维修时长计算系统",
         "endpoints": {
             "/calculate_repair_time": "计算维修时长并判断是否超期",
-            "/generate_maintenance_quote": "生成维修确认单",
             "/docs": "API文档"
         }
     }
 
-@app.post("/generate_maintenance_quote")
-async def generate_maintenance_quote(request: MaintenanceRequest):
-    try:
-        # 生成唯一文件名
-        file_id = str(uuid4())[:8]
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        docx_filename = f"维修确认单_{file_id}_{timestamp}.docx"
-        
-        # 修复路径问题
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        template_path = os.path.join(base_dir, "temp", "维修确认单模板.docx")
-        
-        # 验证文件状态
-        if not template_path.lower().endswith(".docx"):
-            raise ValueError("仅支持 .docx 格式模板文件")
-        if not os.path.exists(template_path):
-            raise FileNotFoundError(f"模板文件未找到: {template_path}")
-        if not os.access(template_path, os.R_OK):
-            raise PermissionError(f"无权读取文件: {template_path}")
-        
-        # 渲染模板
-        doc = DocxTemplate(template_path)
-        context = request.model_dump()
-        context["total_fee"] = f"{request.total_fee:.2f}"
-        doc.render(context)
-        docx_path = os.path.join("generated_files", docx_filename)
-        doc.save(docx_path)
-        
-        return {
-            "docx_url": f"/static/{docx_filename}"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=12123)
+    uvicorn.run(app, host="0.0.0.0", port=12124)

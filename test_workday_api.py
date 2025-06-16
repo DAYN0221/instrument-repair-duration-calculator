@@ -77,7 +77,7 @@ def test_system_integration():
     """测试系统集成"""
     print("\n=== 测试系统集成 ===")
     
-    base_url = "http://localhost:12123"
+    base_url = "http://localhost:12124"
     
     # 测试案例：使用新的API集成计算维修时长
     print("\n测试维修时长计算（使用API集成）：")
@@ -137,7 +137,7 @@ def test_cache_functionality():
     """测试缓存功能"""
     print("\n=== 测试缓存功能 ===")
     
-    base_url = "http://localhost:12123"
+    base_url = "http://localhost:12124"
     
     # 发送相同的请求两次，第二次应该使用缓存
     test_data = {

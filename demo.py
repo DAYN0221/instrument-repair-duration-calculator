@@ -1,6 +1,6 @@
 import requests
 
-url = "http://localhost:12123/generate_maintenance_quote"
+url = "http://localhost:12124/generate_maintenance_quote"
 data = {
     "cust_name": "西安电子科技大学",
     "cust_add": "陕西省西安市雁塔区太白南路2号",

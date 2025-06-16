@@ -46,7 +46,7 @@ def test_system_integration():
         }
         
         response = requests.post(
-            "http://localhost:12123/calculate_repair_time",
+            "http://localhost:12124/calculate_repair_time",
             json=data,
             timeout=10
         )
