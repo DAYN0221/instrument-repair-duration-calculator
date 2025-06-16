@@ -1,10 +1,33 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse, PlainTextResponse
+from pydantic import BaseModel, Field, ValidationError, validator
+from docxtpl import DocxTemplate
+from uuid import uuid4
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
+from urllib.parse import quote
 import requests
+import os
+import json
+import logging
+
+# 配置日志记录
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("app.log"),
+    ],
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="仪器维修时长计算系统", description="计算仪器维修各阶段时长并判断是否超期")
+
+# 创建文件目录并挂载静态文件
+os.makedirs("generated_files", exist_ok=True)
+app.mount("/static", StaticFiles(directory="generated_files"), name="static")
 
 class RepairTimeCalculationRequest(BaseModel):
     rep_ins_type: int  # 仪器类型，3为返修，其他为普通维修
@@ -22,6 +45,24 @@ class RepairTimeResult(BaseModel):
     is_repair_overdue: Optional[bool] = None  # 维修是否超期
     is_return_repair_overdue: Optional[bool] = None  # 返修是否超期
     message: str
+
+class DeliveryNoteRequest(BaseModel):
+    customer_delivery_address: str = Field(..., alias="customer_delivery_addres")
+    instmt_model: List[str] = Field(default_factory=list)
+    instmt_serial_number: List[str] = Field(default_factory=list)
+    instmt_accessories_info: List[str] = Field(default_factory=list)
+    sales_rpstv: str = ""
+    current_date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+
+    @validator('instmt_model', 'instmt_serial_number', 'instmt_accessories_info', pre=True)
+    def split_string_to_list(cls, v):
+        """将逗号分隔的字符串转换为列表，兼容表单数据格式"""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(',')]
+        return v
+
+    class Config:
+        allow_population_by_field_name = True
 
 # 工作日API配置
 WORKDAY_API_URL = "https://date.appworlds.cn/work/days"
@@ -162,17 +203,100 @@ async def calculate_repair_time(request: RepairTimeCalculationRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"计算失败: {str(e)}")
 
+@app.post("/generate_delivery_note")
+async def generate_delivery_note(
+    request: Request,
+    customer_delivery_addres: Optional[str] = Form(None),
+    instmt_model: Optional[str] = Form(None),
+    instmt_serial_number: Optional[str] = Form(None),
+    instmt_accessories_info: Optional[str] = Form(None),
+    sales_rpstv: Optional[str] = Form(None),
+):
+    try:
+        # 处理表单数据和JSON数据
+        if request.headers.get("content-type") == "application/json":
+            raw_data = await request.body()
+            current_data = json.loads(raw_data.decode("utf-8"))
+        else:
+            form_data = await request.form()
+            current_data = {
+                "customer_delivery_addres": form_data.get("customer_delivery_addres"),
+                "instmt_model": form_data.getlist("instmt_model"),
+                "instmt_serial_number": form_data.getlist("instmt_serial_number"),
+                "instmt_accessories_info": form_data.getlist("instmt_accessories_info"),
+                "sales_rpstv": form_data.get("sales_rpstv"),
+            }
+
+        validated_request = DeliveryNoteRequest(**current_data)
+
+        # 生成文件逻辑
+        file_id = str(uuid4())[:8]
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        docx_filename = f"出库单_{file_id}_{timestamp}.docx"
+        template_path = os.path.join(
+            os.path.dirname(__file__), "temp", "西安安泰测试科技有限公司发货单.docx"
+        )
+
+        if not os.path.exists(template_path):
+            raise FileNotFoundError("发货单模板未找到")
+
+        doc = DocxTemplate(template_path)
+        context = validated_request.dict(by_alias=True)
+        
+        # 合并多字段为元组列表
+        context["instmt_list"] = list(zip(
+            context["instmt_model"],
+            context["instmt_serial_number"],
+            context["instmt_accessories_info"]
+        ))
+
+        doc.render(context)
+        docx_path = os.path.join("generated_files", docx_filename)
+        doc.save(docx_path)
+
+        base_url = str(request.base_url)
+        download_url = f"{base_url}download/{docx_filename}"
+        return PlainTextResponse(download_url, media_type="text/plain")
+
+    except json.JSONDecodeError:
+        raise HTTPException(400, "无效的JSON格式")
+    except ValidationError as e:
+        raise HTTPException(422, f"数据验证失败: {e.errors()}")
+    except Exception as e:
+        raise HTTPException(500, f"生成失败: {str(e)}")
+
 @app.get("/")
-async def root():
+async def root(docx_url: Optional[str] = None):
     """API根路径"""
+    if docx_url and docx_url.startswith("/download/"):
+        file_name = docx_url.split("/download/")[1]
+        return RedirectResponse(url=f"/download/{file_name}")
+    
     return {
         "message": "仪器维修时长计算系统",
         "endpoints": {
             "/calculate_repair_time": "计算维修时长并判断是否超期",
+            "/generate_delivery_note": "生成出库单",
+            "/download/{file_name}": "下载生成的文件",
             "/docs": "API文档"
         }
     }
 
+@app.get("/download/{file_name}")
+async def download_file(file_name: str):
+    """下载生成的文件"""
+    # 支持中文文件名下载
+    file_path = os.path.join("generated_files", file_name)
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "文件不存在")
+
+    encoded_filename = quote(file_name)
+    headers = {
+        "Content-Disposition": f"attachment; filename*=utf-8''{encoded_filename}",
+        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    return FileResponse(file_path, headers=headers)
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=12124)
+    uvicorn.run(app, host="0.0.0.0", port=12123)
